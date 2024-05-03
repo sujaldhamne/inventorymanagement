@@ -1,11 +1,8 @@
-
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
 import mysql.connector
-import matplotlib.pyplot as plt  # Step 1
 
-# Function to connect to MySQL database
 # Function to connect to MySQL database
 def connect_to_db():
     try:
@@ -37,9 +34,17 @@ def create_table(cursor):
 # Function to insert item into the inventory
 def add_item(name, quantity, cursor, conn):
     try:
-        cursor.execute("INSERT INTO inventory (name, quantity) VALUES (%s, %s)", (name, quantity))
-        conn.commit()
-        messagebox.showinfo("Success", "Item added to inventory")
+        cursor.execute("SELECT * FROM inventory WHERE name = %s", (name,))
+        existing_item = cursor.fetchone()
+        if existing_item:
+            new_quantity = existing_item[2] + int(quantity)
+            cursor.execute("UPDATE inventory SET quantity = %s WHERE name = %s", (new_quantity, name))
+            conn.commit()
+            messagebox.showinfo("Success", "Item quantity updated")
+        else:
+            cursor.execute("INSERT INTO inventory (name, quantity) VALUES (%s, %s)", (name, quantity))
+            conn.commit()
+            messagebox.showinfo("Success", "Item added to inventory")
     except mysql.connector.Error as err:
         conn.rollback()
         messagebox.showerror("Error", f"Error adding item: {err}")
@@ -67,18 +72,12 @@ def update_item(name, new_quantity, cursor, conn):
 # Function to delete item from inventory
 def delete_item(name, cursor, conn):
     try:
-        cursor.execute("SELECT * FROM inventory WHERE name = %s", (name,))
-        item = cursor.fetchone()  # Fetch one row
-        if item:
-            cursor.execute("DELETE FROM inventory WHERE name = %s", (name,))
-            conn.commit()
-            messagebox.showinfo("Success", "Item deleted from inventory")
-        else:
-            messagebox.showwarning("Warning", f"Item '{name}' is not in the inventory")
+        cursor.execute("DELETE FROM inventory WHERE name = %s", (name,))
+        conn.commit()
+        messagebox.showinfo("Success", "Item deleted from inventory")
     except mysql.connector.Error as err:
         conn.rollback()
         messagebox.showerror("Error", f"Error deleting item: {err}")
-
 
 # Tkinter GUI
 def main():
@@ -169,11 +168,6 @@ def main():
                                          bg="#FF6347", fg="white")
                 clear_button.grid(row=0, column=3)
 
-                # Button to display pie chart
-                pie_chart_button = tk.Button(display_window, text="Display Pie Chart", command=display_pie_chart,
-                                              font=("Arial", 10),bg="#4CAF50", fg="white")
-                pie_chart_button.pack(pady=5)
-
             else:
                 messagebox.showinfo("Inventory", "Inventory is empty")
 
@@ -237,22 +231,6 @@ def main():
 
             delete_button = tk.Button(delete_window, text="Delete", command=delete, font=label_font, bg="#FF6347", fg="white")
             delete_button.grid(row=1, column=0, columnspan=2, pady=5)
-
-        # Function to display pie chart
-        def display_pie_chart():
-            inventory_data = display_inventory(cursor)
-            if inventory_data:
-                names = [row[1] for row in inventory_data]
-                quantities = [row[2] for row in inventory_data]
-
-                plt.figure(figsize=(6, 6))
-                plt.pie(quantities, labels=names, autopct='%1.1f%%', startangle=140)
-                plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
-                plt.title('Inventory Distribution')
-
-                plt.show()
-            else:
-                messagebox.showinfo("Inventory", "Inventory is empty")
 
         label_font = ("Arial", 12)
         entry_font = ("Arial", 10)
